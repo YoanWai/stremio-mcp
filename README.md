@@ -23,7 +23,7 @@ stremio-mcp
 ### Homebrew
 
 ```bash
-brew install --formula ./Formula/stremio-mcp.rb
+brew install yoanwai/tap/stremio-mcp
 ```
 
 ## MCP client configuration
