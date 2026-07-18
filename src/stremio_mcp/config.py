@@ -15,6 +15,7 @@ class Settings:
     android_tv_host: str = field(default_factory=lambda: os.getenv("ANDROID_TV_HOST", ""))
     android_tv_port: int = field(default_factory=_port_from_env)
     adb_path: str = field(default_factory=lambda: os.getenv("ADB_PATH", "adb"))
+    stremio_auth_key: str = field(default_factory=lambda: os.getenv("STREMIO_AUTH_KEY", ""))
 
 
 settings = Settings()

@@ -63,6 +63,7 @@ With a `.env` file instead of inline env:
 | `ANDROID_TV_HOST` | (none) | For TV tools | IP or hostname of the Android TV |
 | `ANDROID_TV_PORT` | `5555` | No | adb TCP port on the TV |
 | `ADB_PATH` | `adb` | No | Path to the adb binary |
+| `STREMIO_AUTH_KEY` | (none) | For library tools | Stremio account auth key (or use `stremio_login`) |
 
 Copy `.env.example` to `.env` and fill in your values.
 
@@ -77,6 +78,15 @@ Copy `.env.example` to `.env` and fill in your values.
 | `stremio_browse_catalog` | Browse an addon catalog (popular, trending, genres) |
 | `stremio_get_addon_manifest` | Inspect an addon's manifest and capabilities |
 | `stremio_get_streams` | List available streams for a title or episode |
+
+### Account and library tools
+
+| Tool | Description |
+|---|---|
+| `stremio_login` | Log in with email and password to obtain an auth key |
+| `stremio_get_library` | List the account's saved library titles |
+| `stremio_add_to_library` | Add a movie or series to the library |
+| `stremio_remove_from_library` | Remove a title from the library |
 
 ### Android TV tools
 

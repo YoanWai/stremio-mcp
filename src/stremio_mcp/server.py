@@ -2,10 +2,11 @@ import argparse
 
 from mcp.server.fastmcp import FastMCP
 
-from . import addons, tv
+from . import account, addons, tv
 
 mcp = FastMCP("stremio")
 addons.register(mcp)
+account.register(mcp)
 tv.register(mcp)
 
 
