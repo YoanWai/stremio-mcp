@@ -4,7 +4,7 @@ class StremioMcp < Formula
   desc "Unified MCP server for Stremio: addon search/streams + Android TV control"
   homepage "https://github.com/YoanWai/stremio-mcp"
   url "https://github.com/YoanWai/stremio-mcp/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5"
+  sha256 "da16bcfe3454a43522dba197750532b61651ea8de181610e1c61db16fbda14d4"
   license "MIT"
 
   depends_on "rust" => :build
