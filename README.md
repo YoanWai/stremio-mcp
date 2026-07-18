@@ -10,13 +10,13 @@ Unified MCP server for Stremio. Two toolsets in one server:
 ### uvx (recommended)
 
 ```bash
-uvx stremio-mcp
+uvx --from git+https://github.com/YoanWai/stremio-mcp stremio-mcp
 ```
 
 ### pip
 
 ```bash
-pip install stremio-mcp
+pip install git+https://github.com/YoanWai/stremio-mcp
 stremio-mcp
 ```
 
@@ -33,10 +33,11 @@ brew install yoanwai/tap/stremio-mcp
   "mcpServers": {
     "stremio": {
       "command": "uvx",
-      "args": ["stremio-mcp"],
+      "args": ["--from", "git+https://github.com/YoanWai/stremio-mcp", "stremio-mcp"],
       "env": {
         "ANDROID_TV_HOST": "192.168.1.100",
-        "ANDROID_TV_PORT": "5555"
+        "ANDROID_TV_PORT": "5555",
+        "STREMIO_AUTH_KEY": ""
       }
     }
   }
@@ -50,7 +51,7 @@ With a `.env` file instead of inline env:
   "mcpServers": {
     "stremio": {
       "command": "uvx",
-      "args": ["--env-file", "/path/to/.env", "stremio-mcp"]
+      "args": ["--env-file", "/path/to/.env", "--from", "git+https://github.com/YoanWai/stremio-mcp", "stremio-mcp"]
     }
   }
 }
