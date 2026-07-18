@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.YoanWai/stremio-mcp",
+  "title": "Stremio",
+  "description": "MCP server for Stremio: search, browse, streams, library, and Android TV playback control.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/YoanWai/stremio-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "stremio-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ANDROID_TV_HOST",
+          "description": "IP or hostname of the Android TV running Stremio. Required only for the TV playback/control tools; omit to use the addon and library tools alone.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ANDROID_TV_PORT",
+          "description": "adb TCP port on the Android TV.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "5555"
+        },
+        {
+          "name": "ADB_PATH",
+          "description": "Path to the adb binary.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "adb"
+        }
+      ]
+    }
+  ]
+}
