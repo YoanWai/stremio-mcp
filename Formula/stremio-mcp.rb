@@ -1,10 +1,10 @@
 class StremioMcp < Formula
   include Language::Python::Virtualenv
 
-  desc "Unified MCP server for Stremio: addon search/streams + Android TV control"
+  desc "MCP server for Stremio: content, library, addons, desktop and TV control"
   homepage "https://github.com/YoanWai/stremio-mcp"
-  url "https://github.com/YoanWai/stremio-mcp/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "da16bcfe3454a43522dba197750532b61651ea8de181610e1c61db16fbda14d4"
+  url "https://github.com/YoanWai/stremio-mcp/archive/refs/tags/v0.2.0.tar.gz"
+  sha256 "267ba56ae49527f5f1e4a617edaf0ffb51922b285b906e4ecfa699f9a2ab5b20"
   license "MIT"
 
   depends_on "rust" => :build
