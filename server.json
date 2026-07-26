@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.YoanWai/stremio-mcp",
   "title": "Stremio",
-  "description": "MCP server for Stremio: search, browse, streams, library, and Android TV playback control.",
-  "version": "0.1.0",
+  "description": "MCP server for Stremio: search and browse content, manage the account library, install and order addons across every signed-in device, and control Stremio on a desktop or an Android TV.",
+  "version": "0.2.0",
   "repository": {
     "url": "https://github.com/YoanWai/stremio-mcp",
     "source": "github"
@@ -13,15 +13,21 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "stremio-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
+          "name": "STREMIO_AUTH_KEY",
+          "description": "Stremio account auth key. Enables the library and addon tools, including installing addons onto every signed-in device. The stremio_login tool can obtain and remember one instead.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "ANDROID_TV_HOST",
-          "description": "IP or hostname of the Android TV running Stremio. Required only for the TV playback/control tools; omit to use the addon and library tools alone.",
+          "description": "IP or hostname of the Android TV running Stremio. Needed only for the TV control tools.",
           "isRequired": false,
           "isSecret": false
         },
@@ -38,6 +44,19 @@
           "isRequired": false,
           "isSecret": false,
           "default": "adb"
+        },
+        {
+          "name": "STREMIO_MCP_ADDON_PORT",
+          "description": "Port the built-in subtitle addon serves on. Any free port works; the manifest URL carries the real one.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "9876"
+        },
+        {
+          "name": "STREMIO_MCP_STATE_DIR",
+          "description": "Where the cached login, subtitle files and addon backups live. Defaults to the platform user data directory.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }
