@@ -7,9 +7,12 @@ startCommand:
     type: object
     required: []
     properties:
+      stremioAuthKey:
+        type: string
+        description: Stremio account auth key. Enables the library and addon tools, including installing addons onto every signed-in device. The stremio_login tool can obtain and remember one instead.
       androidTvHost:
         type: string
-        description: IP or hostname of the Android TV running Stremio. Needed only for the TV playback/control tools; leave empty to use the addon and library tools alone.
+        description: IP or hostname of the Android TV running Stremio. Needed only for the TV control tools.
       androidTvPort:
         type: string
         default: "5555"
@@ -18,7 +21,14 @@ startCommand:
         type: string
         default: adb
         description: Path to the adb binary.
+      addonPort:
+        type: string
+        default: "9876"
+        description: Port the built-in subtitle addon serves on. Any free port works; the manifest URL carries the real one.
+      stateDir:
+        type: string
+        description: Where the cached login, subtitle files and addon backups live. Defaults to the platform user data directory.
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
-    (config) => ({ command: 'uvx', args: ['stremio-mcp'], env: { ANDROID_TV_HOST: config.androidTvHost || '', ANDROID_TV_PORT: config.androidTvPort || '5555', ADB_PATH: config.adbPath || 'adb' } })
+    (config) => ({ command: 'uvx', args: ['stremio-mcp'], env: { STREMIO_AUTH_KEY: config.stremioAuthKey || '', ANDROID_TV_HOST: config.androidTvHost || '', ANDROID_TV_PORT: config.androidTvPort || '5555', ADB_PATH: config.adbPath || 'adb', STREMIO_MCP_ADDON_PORT: config.addonPort || '9876', STREMIO_MCP_STATE_DIR: config.stateDir || '' } })
