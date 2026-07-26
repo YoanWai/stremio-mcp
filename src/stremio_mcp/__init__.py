@@ -1,5 +1,5 @@
-from .server import cli, mcp
+from .server import build_server, cli, get_server
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
-__all__ = ["cli", "mcp", "__version__"]
+__all__ = ["build_server", "cli", "get_server", "__version__"]
