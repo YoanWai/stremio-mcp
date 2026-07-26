@@ -4,15 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stremio-mcp"
-version = "0.1.0"
-description = "Unified MCP server for Stremio: addon search/streams + Android TV control"
+version = "0.2.0"
+description = "MCP server for Stremio: content search, account library, addon management, desktop and Android TV control"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Yoan Wai" }]
+keywords = ["mcp", "stremio", "addons", "android-tv"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
 dependencies = [
     "mcp>=1.2.0",
     "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
 ]
 
 [project.scripts]
@@ -23,3 +38,15 @@ Homepage = "https://github.com/YoanWai/stremio-mcp"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "UP"]

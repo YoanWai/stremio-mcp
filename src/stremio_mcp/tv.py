@@ -11,9 +11,12 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Optional
+import shlex
+import tempfile
+from pathlib import Path
 
 from .config import settings
+from .net import HttpError, get_bytes
 
 STREMIO_PACKAGE = "com.stremio.one"
 
@@ -83,23 +86,73 @@ class AndroidTV:
 
     async def open_uri(self, uri: str) -> None:
         await self._shell(
-            f"am start -a android.intent.action.VIEW -d '{uri}' {STREMIO_PACKAGE}"
+            f"am start -a android.intent.action.VIEW -d {shlex.quote(uri)} {STREMIO_PACKAGE}"
         )
 
     async def key(self, keycode: int) -> None:
         await self._shell(f"input keyevent {keycode}")
 
-    async def set_volume(self, level: int) -> None:
-        if not 0 <= level <= 15:
-            raise TVError("volume level must be between 0 and 15")
+    async def push(self, local: str, remote: str) -> None:
+        await self._adb("-s", self.target, "push", local, remote)
+
+    async def shell_cmd(self, command: str, timeout: float = 10.0) -> str:
+        return await self._shell(command, timeout=timeout)
+
+    async def clear_default_player(self) -> None:
+        """Forget the app Stremio hands video off to, so Android asks again.
+
+        Only the default-handler association is cleared. Wiping app data here
+        would also destroy the TV's Stremio login and library cache.
+        """
+        await self._shell(
+            f"cmd package clear-defaults {STREMIO_PACKAGE} 2>/dev/null; true"
+        )
+
+    async def volume(self) -> dict:
+        """Current music-stream volume and the device's own range."""
+        raw = await self._shell("media volume --stream 3 --get")
+        match = re.search(r"volume is (\d+) in range \[(\d+)\.\.(\d+)\]", raw)
+        if not match:
+            raise TVError(f"could not read the volume from: {raw.strip()!r}")
+        return {"level": int(match[1]), "min": int(match[2]), "max": int(match[3])}
+
+    async def set_volume(self, level: int) -> dict:
+        limits = await self.volume()
+        if not limits["min"] <= level <= limits["max"]:
+            raise TVError(f"volume must be between {limits['min']} and {limits['max']}")
         await self._shell(f"media volume --stream 3 --set {level}")
+        return {**limits, "level": level}
+
+    async def device_info(self) -> dict:
+        raw = await self._shell(
+            "getprop ro.product.model; getprop ro.product.manufacturer; "
+            "getprop ro.build.version.release; "
+            f"dumpsys package {STREMIO_PACKAGE} | grep -m1 versionName"
+        )
+        lines = [line.strip() for line in raw.splitlines() if line.strip()]
+        version = next((line.split("=", 1)[-1] for line in lines if "versionName" in line), None)
+        return {
+            "model": lines[0] if len(lines) > 0 else None,
+            "manufacturer": lines[1] if len(lines) > 1 else None,
+            "android_version": lines[2] if len(lines) > 2 else None,
+            "stremio_version": version,
+        }
+
+    async def type_text(self, text: str) -> None:
+        await self._shell(f"input text {shlex.quote(text.replace(' ', '%s'))}")
+
+    async def screenshot(self, local_path: str) -> None:
+        remote = "/sdcard/stremio-mcp-screen.png"
+        await self._shell(f"screencap -p {remote}")
+        await self._adb("-s", self.target, "pull", remote, local_path, timeout=40.0)
+        await self._shell(f"rm -f {remote}")
 
     async def power_state(self) -> str:
         dump = await self._shell("dumpsys power")
         match = re.search(r"mWakefulness=(\w+)", dump)
         return match.group(1) if match else "unknown"
 
-    async def uptime_ms(self) -> Optional[int]:
+    async def uptime_ms(self) -> int | None:
         try:
             raw = await self._shell("cat /proc/uptime")
         except AdbError:
@@ -110,7 +163,7 @@ class AndroidTV:
         except ValueError:
             return None
 
-    async def track_duration_ms(self) -> Optional[int]:
+    async def track_duration_ms(self) -> int | None:
         """Longest media.extractor track duration (>= 60s), the played file."""
         try:
             dump = await self._shell("dumpsys media.extractor")
@@ -195,7 +248,7 @@ def _stremio_blocks(dump: str):
         yield "\n".join(lines[start:end])
 
 
-def _video_id(imdb_id: str, content_type: str, season: Optional[int], episode: Optional[int]) -> str:
+def _video_id(imdb_id: str, content_type: str, season: int | None, episode: int | None) -> str:
     if content_type == "series":
         if season is None or episode is None:
             raise TVError("series playback requires both 'season' and 'episode'")
@@ -203,10 +256,20 @@ def _video_id(imdb_id: str, content_type: str, season: Optional[int], episode: O
     return imdb_id
 
 
+_device: AndroidTV | None = None
+
+
 async def _tv() -> AndroidTV:
-    tv = AndroidTV(settings.android_tv_host, settings.android_tv_port, settings.adb_path)
-    await tv.connect()
-    return tv
+    """Reuse one connected device across tool calls; adb connect is a round trip."""
+    global _device
+    if _device is None:
+        _device = AndroidTV(settings.android_tv_host, settings.android_tv_port, settings.adb_path)
+    try:
+        await _device.connect()
+    except AdbError:
+        _device = None
+        raise
+    return _device
 
 
 def register(mcp) -> None:
@@ -214,8 +277,8 @@ def register(mcp) -> None:
     async def play(
         imdb_id: str,
         content_type: str = "movie",
-        season: Optional[int] = None,
-        episode: Optional[int] = None,
+        season: int | None = None,
+        episode: int | None = None,
     ) -> str:
         """Open a movie or series episode in Stremio on the Android TV.
 
@@ -238,10 +301,10 @@ def register(mcp) -> None:
             return json.dumps({"ok": False, "error": str(exc)})
 
     @mcp.tool(name="tv_control")
-    async def tv_control(category: str, action: str, value: Optional[int] = None) -> str:
+    async def tv_control(category: str, action: str, value: int | None = None) -> str:
         """Control the TV: category is 'volume' | 'playback' | 'navigate' | 'power'.
 
-        volume: up/down/mute/set (set needs value 0-15).
+        volume: up/down/mute/status, or set with value in the device's own range.
         playback: play/pause/toggle/stop/next/previous/forward/rewind.
         navigate: up/down/left/right/select/back/home.
         power: wake/sleep/toggle/status.
@@ -249,10 +312,12 @@ def register(mcp) -> None:
         try:
             tv = await _tv()
             if category == "volume":
+                if action == "status":
+                    return json.dumps({"ok": True, **await tv.volume()})
                 if action == "set":
                     if value is None:
-                        return json.dumps({"ok": False, "error": "volume set requires value 0-15"})
-                    await tv.set_volume(value)
+                        return json.dumps({"ok": False, "error": "volume set requires a value"})
+                    return json.dumps({"ok": True, **await tv.set_volume(value)})
                 elif action in ("up", "down", "mute"):
                     await tv.key(KEY[f"volume_{action}"])
                 else:
@@ -278,6 +343,56 @@ def register(mcp) -> None:
         except (AdbError, TVError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
 
+    @mcp.tool(name="push_subtitle")
+    async def push_subtitle(
+        subtitle_url_or_path: str,
+        filename: str = "subtitle.srt",
+        clear_player_default: bool = False,
+    ) -> str:
+        """Push an SRT subtitle file to the Android TV Downloads folder.
+
+        subtitle_url_or_path: URL to download the SRT from, or a local absolute path.
+        filename: name for the file on the TV (must end in .srt).
+        Set clear_player_default to also forget Stremio's chosen video app, so
+        Android asks again on the next play and an external player like VLC can
+        take over. For subtitles inside Stremio itself, use add_subtitle.
+        """
+        if not filename.endswith(".srt") or "/" in filename:
+            return json.dumps({"ok": False, "error": "filename must be a bare name ending in .srt"})
+        try:
+            if subtitle_url_or_path.startswith(("http://", "https://")):
+                data = await get_bytes(subtitle_url_or_path, max_bytes=4_000_000)
+            else:
+                data = Path(subtitle_url_or_path).expanduser().read_bytes()
+        except (HttpError, OSError) as exc:
+            return json.dumps({"ok": False, "error": f"could not read the subtitle: {exc}"})
+        if not data.strip():
+            return json.dumps({"ok": False, "error": "the subtitle file is empty"})
+
+        local_path = None
+        try:
+            tv = await _tv()
+            with tempfile.NamedTemporaryFile(suffix=".srt", delete=False) as tmp:
+                tmp.write(data)
+                local_path = tmp.name
+            remote = f"/sdcard/Download/{filename}"
+            await tv.push(local_path, remote)
+            if clear_player_default:
+                await tv.clear_default_player()
+        except (AdbError, TVError, OSError) as exc:
+            return json.dumps({"ok": False, "error": str(exc)})
+        finally:
+            if local_path:
+                Path(local_path).unlink(missing_ok=True)
+        return json.dumps(
+            {
+                "ok": True,
+                "remote_path": remote,
+                "size": len(data),
+                "player_default_cleared": clear_player_default,
+            }
+        )
+
     @mcp.tool(name="playback_status")
     async def playback_status() -> str:
         """Report what Stremio is playing on the TV: title, state, position, duration (ms)."""
@@ -286,3 +401,54 @@ def register(mcp) -> None:
             return json.dumps(await tv.playback())
         except (AdbError, TVError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
+
+    @mcp.tool(name="tv_status")
+    async def tv_status() -> str:
+        """Report the TV: model, Android version, installed Stremio version, power and volume.
+
+        Run this first when a TV tool misbehaves; it proves whether adb can reach
+        the device at all.
+        """
+        try:
+            tv = await _tv()
+            info = await tv.device_info()
+            return json.dumps(
+                {
+                    "ok": True,
+                    "target": tv.target,
+                    **info,
+                    "power": await tv.power_state(),
+                    "volume": await tv.volume(),
+                }
+            )
+        except (AdbError, TVError) as exc:
+            return json.dumps({"ok": False, "error": str(exc)})
+
+    @mcp.tool(name="tv_type_text")
+    async def tv_type_text(text: str) -> str:
+        """Type text into whatever field is focused on the TV, such as Stremio's search box."""
+        if not text.strip():
+            return json.dumps({"ok": False, "error": "text is empty"})
+        try:
+            tv = await _tv()
+            await tv.type_text(text)
+        except (AdbError, TVError) as exc:
+            return json.dumps({"ok": False, "error": str(exc)})
+        return json.dumps({"ok": True, "typed": text})
+
+    @mcp.tool(name="tv_screenshot")
+    async def tv_screenshot(save_path: str = "") -> str:
+        """Capture what the TV is showing and save it as a PNG on this machine.
+
+        Use it to see which item the remote is sitting on before pressing select.
+        """
+        target = Path(save_path).expanduser() if save_path else Path(tempfile.gettempdir()) / "stremio-tv.png"
+        try:
+            tv = await _tv()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            await tv.screenshot(str(target))
+        except (AdbError, TVError, OSError) as exc:
+            return json.dumps({"ok": False, "error": str(exc)})
+        if not target.is_file():
+            return json.dumps({"ok": False, "error": "adb pull produced no file"})
+        return json.dumps({"ok": True, "path": str(target), "size": target.stat().st_size})
