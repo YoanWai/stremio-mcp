@@ -1,4 +1,7 @@
 
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 
 from stremio_mcp import addon_collection as collection
@@ -38,6 +41,35 @@ def test_is_valid_descriptor_rejects_the_shape_that_wiped_the_collection():
     assert not collection.is_valid_descriptor({"manifestUrl": "http://a/manifest.json"})
     assert not collection.is_valid_descriptor({"transportUrl": "http://a", "manifest": {}})
     assert collection.is_valid_descriptor(descriptor("com.example"))
+
+
+def test_snapshot_names_do_not_collide_within_one_second(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        collection,
+        "settings",
+        SimpleNamespace(state_dir=tmp_path),
+    )
+    first = collection._snapshot([descriptor("com.first")])
+    second = collection._snapshot([descriptor("com.second")])
+
+    assert first != second
+    assert len(list((tmp_path / "addon-backups").glob("addons-*.json"))) == 2
+
+
+def test_snapshot_write_failure_propagates(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        collection,
+        "settings",
+        SimpleNamespace(state_dir=tmp_path),
+    )
+
+    def fail_write(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", fail_write)
+
+    with pytest.raises(OSError, match="disk full"):
+        collection._snapshot([descriptor("com.first")])
 
 
 @pytest.mark.asyncio

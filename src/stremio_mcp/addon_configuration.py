@@ -244,6 +244,7 @@ def register(mcp) -> None:
             addon_collection.CollectionError,
             api.ApiError,
             HttpError,
+            OSError,
             ValueError,
         ) as exc:
             return json.dumps({"ok": False, "error": str(exc)})

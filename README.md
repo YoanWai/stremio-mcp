@@ -93,6 +93,9 @@ Changes here reach every signed-in device, which is how a laptop gets its addons
 | `stremio_uninstall_addon` | Remove an addon by id or URL |
 | `stremio_reorder_addons` | Change which addon answers first for streams |
 | `stremio_restore_default_addons` | Reinstall Stremio's seven defaults |
+| `stremio_save_addon_profile` | Save the current ordered addon collection under a name |
+| `stremio_list_addon_profiles` | List named addon profiles and their addon ids |
+| `stremio_apply_addon_profile` | Replace the account collection with a named profile |
 
 Every write merges against the live collection, keeps Stremio's protected
 addons, and snapshots the previous list under the state directory.
