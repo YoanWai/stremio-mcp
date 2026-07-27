@@ -3,8 +3,8 @@ class StremioMcp < Formula
 
   desc "MCP server for Stremio: content, library, addons, desktop and TV control"
   homepage "https://github.com/YoanWai/stremio-mcp"
-  url "https://github.com/YoanWai/stremio-mcp/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "267ba56ae49527f5f1e4a617edaf0ffb51922b285b906e4ecfa699f9a2ab5b20"
+  url "https://github.com/YoanWai/stremio-mcp/archive/refs/tags/v0.3.0.tar.gz"
+  sha256 "1a64d741993d0fa1b232fefb85fd46e19b87cd4e9086eea7f708907ebd00dc9d"
   license "MIT"
 
   depends_on "rust" => :build
