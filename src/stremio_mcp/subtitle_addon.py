@@ -232,13 +232,10 @@ def _load_from_disk() -> None:
 
 
 def _save_to_disk() -> None:
-    try:
-        settings.subtitle_dir.mkdir(parents=True, exist_ok=True)
-        with _lock:
-            snapshot = json.dumps(_subtitles, ensure_ascii=False)
-        _index_path().write_text(snapshot, encoding="utf-8")
-    except OSError:
-        pass
+    settings.subtitle_dir.mkdir(parents=True, exist_ok=True)
+    with _lock:
+        snapshot = json.dumps(_subtitles, ensure_ascii=False)
+    _index_path().write_text(snapshot, encoding="utf-8")
 
 
 async def install_to_account() -> dict[str, Any]:
@@ -260,6 +257,51 @@ async def install_to_account() -> dict[str, Any]:
     return {"manifest_url": manifest_url(), "total_addons": len(updated), "backup": backup}
 
 
+class SubtitleError(RuntimeError):
+    pass
+
+
+async def add_subtitle_url(
+    imdb_id: str,
+    subtitle_url: str,
+    language: str = "heb",
+    season: int = 0,
+    episode: int = 0,
+    label: str = "",
+) -> dict[str, Any]:
+    start_server()
+    data = await get_bytes(subtitle_url, max_bytes=4_000_000)
+    if not data.strip():
+        raise SubtitleError("the downloaded subtitle is empty")
+
+    key = video_id(imdb_id, season, episode)
+    subtitle_id = hashlib.sha256(f"{key}|{language}".encode()).hexdigest()[:12]
+    settings.subtitle_dir.mkdir(parents=True, exist_ok=True)
+    _store_path(subtitle_id).write_bytes(data)
+
+    entry = {
+        "id": subtitle_id,
+        "lang": language,
+        "label": label or f"{language.upper()} (MCP)",
+        "filename": f"{key.replace(':', '_')}_{language}.srt",
+        "size": len(data),
+    }
+    with _lock:
+        existing = _subtitles.setdefault(key, [])
+        _subtitles[key] = [item for item in existing if item["id"] != subtitle_id] + [entry]
+    _save_to_disk()
+
+    synced: Any = "skipped: no auth key"
+    if api.has_key():
+        synced = await install_to_account()
+    return {
+        "video_id": key,
+        "subtitle": entry,
+        "manifest_url": manifest_url(),
+        "account_sync": synced,
+    }
+
+
 def register(mcp) -> None:
     @mcp.tool(name="add_subtitle")
     async def add_subtitle(
@@ -277,50 +319,13 @@ def register(mcp) -> None:
         The subtitle then shows up in Stremio's subtitle picker on any device
         that can reach this machine on the LAN.
         """
-        start_server()
         try:
-            data = await get_bytes(subtitle_url, max_bytes=4_000_000)
-        except HttpError as exc:
+            result = await add_subtitle_url(
+                imdb_id, subtitle_url, language, season, episode, label
+            )
+        except (HttpError, OSError, RuntimeError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
-        if not data.strip():
-            return json.dumps({"ok": False, "error": "the downloaded subtitle is empty"})
-
-        key = video_id(imdb_id, season, episode)
-        subtitle_id = hashlib.sha256(f"{key}|{language}".encode()).hexdigest()[:12]
-        try:
-            settings.subtitle_dir.mkdir(parents=True, exist_ok=True)
-            _store_path(subtitle_id).write_bytes(data)
-        except OSError as error:
-            return json.dumps({"ok": False, "error": f"could not store the subtitle: {error}"})
-
-        entry = {
-            "id": subtitle_id,
-            "lang": language,
-            "label": label or f"{language.upper()} (MCP)",
-            "filename": f"{key.replace(':', '_')}_{language}.srt",
-            "size": len(data),
-        }
-        with _lock:
-            existing = _subtitles.setdefault(key, [])
-            _subtitles[key] = [item for item in existing if item["id"] != subtitle_id] + [entry]
-        _save_to_disk()
-
-        synced: Any = None
-        if api.has_key():
-            try:
-                synced = await install_to_account()
-            except Exception as exc:  # noqa: BLE001 - surfaced to the caller, never swallowed
-                synced = {"error": str(exc)}
-        return json.dumps(
-            {
-                "ok": True,
-                "video_id": key,
-                "subtitle": entry,
-                "manifest_url": manifest_url(),
-                "account_sync": synced or "skipped: no auth key",
-            },
-            ensure_ascii=False,
-        )
+        return json.dumps({"ok": True, **result}, ensure_ascii=False)
 
     @mcp.tool(name="list_subtitles")
     async def list_subtitles() -> str:
@@ -343,19 +348,22 @@ def register(mcp) -> None:
         imdb_id: str, subtitle_id: str = "", season: int = 0, episode: int = 0
     ) -> str:
         """Stop serving subtitles for a title. Omit subtitle_id to remove them all."""
-        start_server()
-        key = video_id(imdb_id, season, episode)
-        with _lock:
-            entries = _subtitles.get(key, [])
-            doomed = [e for e in entries if not subtitle_id or e["id"] == subtitle_id]
-            kept = [e for e in entries if e not in doomed]
-            if kept:
-                _subtitles[key] = kept
-            else:
-                _subtitles.pop(key, None)
-        for entry in doomed:
-            _store_path(entry["id"]).unlink(missing_ok=True)
-        _save_to_disk()
+        try:
+            start_server()
+            key = video_id(imdb_id, season, episode)
+            with _lock:
+                entries = _subtitles.get(key, [])
+                doomed = [e for e in entries if not subtitle_id or e["id"] == subtitle_id]
+                kept = [e for e in entries if e not in doomed]
+                if kept:
+                    _subtitles[key] = kept
+                else:
+                    _subtitles.pop(key, None)
+            for entry in doomed:
+                _store_path(entry["id"]).unlink(missing_ok=True)
+            _save_to_disk()
+        except OSError as error:
+            return json.dumps({"ok": False, "error": str(error)})
         return json.dumps({"ok": True, "video_id": key, "removed": [e["id"] for e in doomed]})
 
     @mcp.tool(name="sync_addon")

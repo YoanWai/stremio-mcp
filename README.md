@@ -66,6 +66,10 @@ JSON.parse(localStorage.getItem("profile")).auth.key
 | `stremio_get_addon_manifest` | Inspect one addon's manifest and capabilities |
 | `stremio_get_streams` | Ask one specific addon for streams |
 | `stremio_find_streams` | Ask **every** installed addon at once and merge the results |
+| `stremio_search_all_catalogs` | Search every installed addon catalog that supports search |
+| `stremio_upcoming_episodes` | Upcoming episodes for series in the account library |
+| `stremio_next_unwatched_episode` | First unwatched regular episode from synced watch history |
+| `stremio_auto_fetch_subtitle` | Hash-match OpenSubtitles and serve the selected subtitle |
 
 ### Account and library
 
@@ -79,6 +83,7 @@ JSON.parse(localStorage.getItem("profile")).auth.key
 | `stremio_add_to_library` | Add a title |
 | `stremio_remove_from_library` | Remove a title, keeping its watch state |
 | `stremio_mark_watched` | Mark a title watched or unwatched everywhere |
+| `stremio_trakt_sync` | Link Trakt and sync Stremio's first-party Trakt addon |
 
 ### Addons
 
