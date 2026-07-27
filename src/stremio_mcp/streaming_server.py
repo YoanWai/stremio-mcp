@@ -154,9 +154,10 @@ async def purge_cache(confirm: bool, info_hash: str = "") -> dict[str, Any]:
     entries = inventory["entries"]
     if normalized:
         entries = [entry for entry in entries if entry["info_hash"] == normalized]
-        active = await _active_stats()
-        if not entries and normalized not in active:
-            raise StreamingServerError(f"no active engine or cached data for {normalized}")
+        if not entries:
+            active = await _active_stats()
+            if normalized not in active:
+                raise StreamingServerError(f"no active engine or cached data for {normalized}")
 
     await _stop_engines(normalized)
     cache_root = Path(inventory["cache_root"])

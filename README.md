@@ -89,9 +89,13 @@ Changes here reach every signed-in device, which is how a laptop gets its addons
 | `stremio_list_addons` | List installed addons in the order they are queried |
 | `stremio_search_addons` | Search the official addon directory |
 | `stremio_install_addon` | Install or upgrade an addon by manifest URL, at a chosen position |
+| `stremio_configure_addon` | Open an addon's browser configuration and install its configured manifest |
 | `stremio_uninstall_addon` | Remove an addon by id or URL |
 | `stremio_reorder_addons` | Change which addon answers first for streams |
 | `stremio_restore_default_addons` | Reinstall Stremio's seven defaults |
+| `stremio_save_addon_profile` | Save the current ordered addon collection under a name |
+| `stremio_list_addon_profiles` | List named addon profiles and their addon ids |
+| `stremio_apply_addon_profile` | Replace the account collection with a named profile |
 
 Every write merges against the live collection, keeps Stremio's protected
 addons, and snapshots the previous list under the state directory.
@@ -103,6 +107,7 @@ addons, and snapshots the previous list under the state directory.
 | `stremio_desktop_status` | Whether the app is installed and its streaming server is up |
 | `stremio_desktop_launch` | Start the app and wait for its streaming server |
 | `stremio_desktop_open` | Open a title, or the addons / library / settings page |
+| `stremio_desktop_play` | Select an installed-addon stream and start playback, including resume |
 | `stremio_desktop_show_addon` | Open an addon's install page for a configurable addon |
 | `stremio_desktop_download` | Download the matching installer for this OS and CPU |
 | `stremio_streaming_server_streams` | Active torrent transfers and per-file progress |
