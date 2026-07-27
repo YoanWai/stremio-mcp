@@ -15,15 +15,27 @@ _mcp: FastMCP | None = None
 
 def build_server() -> FastMCP:
     """Create the server and register every toolset onto it."""
-    from . import account, addon_collection, addon_profiles, addons, desktop, subtitle_addon, tv
+    from . import (
+        account,
+        addon_collection,
+        addon_configuration,
+        addon_profiles,
+        addons,
+        desktop,
+        desktop_play,
+        subtitle_addon,
+        tv,
+    )
 
     server = FastMCP("stremio")
     for module in (
         addons,
         account,
         addon_collection,
+        addon_configuration,
         addon_profiles,
         desktop,
+        desktop_play,
         subtitle_addon,
         tv,
     ):

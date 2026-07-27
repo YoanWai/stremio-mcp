@@ -85,6 +85,49 @@ async def fetch_streams(base: str, content_type: str, video_id: str) -> list[dic
     return [stream for stream in streams if isinstance(stream, dict)]
 
 
+async def find_stream_candidates(
+    imdb_id: str,
+    content_type: str,
+    video_id: str,
+    per_addon: int = 10,
+) -> tuple[list[dict[str, Any]], list[dict[str, str]], int]:
+    from . import addon_collection
+
+    installed = await addon_collection.fetch()
+    providers = [
+        entry
+        for entry in installed
+        if _supports_streams(entry["manifest"], content_type, imdb_id)
+    ]
+
+    async def ask(entry: dict[str, Any]) -> tuple[dict[str, Any], list | None, str | None]:
+        base = normalize_addon_base(entry["transportUrl"])
+        try:
+            return entry, await fetch_streams(base, content_type, video_id), None
+        except HttpError as exc:
+            return entry, None, str(exc)
+
+    outcomes = await asyncio.gather(*(ask(entry) for entry in providers))
+    candidates: list[dict[str, Any]] = []
+    failures: list[dict[str, str]] = []
+    for entry, streams, error in outcomes:
+        manifest = entry["manifest"]
+        name = manifest.get("name") or manifest["id"]
+        if error is not None:
+            failures.append({"addon": name, "error": error})
+            continue
+        for stream in streams[: max(1, per_addon)]:
+            candidates.append(
+                {
+                    "addon": name,
+                    "addon_id": manifest["id"],
+                    "transport_url": entry["transportUrl"],
+                    "stream": stream,
+                }
+            )
+    return candidates, failures, len(providers)
+
+
 def register(mcp) -> None:
     @mcp.tool()
     async def stremio_search(query: str, content_type: str = "movie", limit: int = 10) -> str:
@@ -255,16 +298,13 @@ def register(mcp) -> None:
 
         try:
             video_id = build_video_id(imdb_id, content_type, season, episode)
-            installed = await addon_collection.fetch()
+            candidates, failures, providers_queried = await find_stream_candidates(
+                imdb_id, content_type, video_id, per_addon
+            )
         except (HttpError, api.ApiError, addon_collection.CollectionError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
 
-        providers = [
-            entry
-            for entry in installed
-            if _supports_streams(entry["manifest"], content_type, imdb_id)
-        ]
-        if not providers:
+        if not providers_queried:
             return json.dumps(
                 {
                     "ok": True,
@@ -275,30 +315,16 @@ def register(mcp) -> None:
                 }
             )
 
-        async def ask(entry: dict[str, Any]) -> tuple[dict[str, Any], list | None, str | None]:
-            base = normalize_addon_base(entry["transportUrl"])
-            try:
-                return entry, await fetch_streams(base, content_type, video_id), None
-            except HttpError as exc:
-                return entry, None, str(exc)
-
-        outcomes = await asyncio.gather(*(ask(entry) for entry in providers))
-
-        merged: list[dict[str, Any]] = []
-        failures: list[dict[str, str]] = []
-        for entry, streams, error in outcomes:
-            name = entry["manifest"].get("name") or entry["manifest"]["id"]
-            if error is not None:
-                failures.append({"addon": name, "error": error})
-                continue
-            for stream in streams[: max(1, per_addon)]:
-                merged.append({"addon": name, **_slim_stream(stream)})
+        merged = [
+            {"addon": candidate["addon"], **_slim_stream(candidate["stream"])}
+            for candidate in candidates
+        ]
 
         return json.dumps(
             {
                 "ok": True,
                 "video_id": video_id,
-                "addons_queried": len(providers),
+                "addons_queried": providers_queried,
                 "count": len(merged),
                 "streams": merged,
                 "failed_addons": failures,
