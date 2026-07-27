@@ -23,6 +23,7 @@ def build_server() -> FastMCP:
         addons,
         desktop,
         desktop_play,
+        streaming_server,
         subtitle_addon,
         tv,
     )
@@ -36,6 +37,7 @@ def build_server() -> FastMCP:
         addon_profiles,
         desktop,
         desktop_play,
+        streaming_server,
         subtitle_addon,
         tv,
     ):
