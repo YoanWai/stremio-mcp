@@ -45,3 +45,26 @@ def test_clear_default_player_does_not_wipe_app_data():
 def test_android_tv_requires_a_host():
     with pytest.raises(tv.TVError):
         tv.AndroidTV("", 5555, "adb")
+
+
+@pytest.mark.asyncio
+async def test_android_tv_pair_uses_code_and_pairing_port(monkeypatch):
+    device = tv.AndroidTV("192.0.2.1", 5555, "adb")
+    calls = []
+
+    async def fake_adb(*args, timeout=20):
+        calls.append(args)
+        return "Successfully paired to 192.0.2.1:37123"
+
+    monkeypatch.setattr(device, "_adb", fake_adb)
+    paired = await device.pair(37123, "123456")
+
+    assert paired == "192.0.2.1:37123"
+    assert calls == [("pair", "192.0.2.1:37123", "123456")]
+
+
+@pytest.mark.asyncio
+async def test_android_tv_pair_rejects_an_invalid_code():
+    device = tv.AndroidTV("192.0.2.1", 5555, "adb")
+    with pytest.raises(tv.TVError, match="six digits"):
+        await device.pair(37123, "12345")

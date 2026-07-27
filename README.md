@@ -92,6 +92,8 @@ Changes here reach every signed-in device, which is how a laptop gets its addons
 | `stremio_uninstall_addon` | Remove an addon by id or URL |
 | `stremio_reorder_addons` | Change which addon answers first for streams |
 | `stremio_restore_default_addons` | Reinstall Stremio's seven defaults |
+| `stremio_addon_health_check` | Reachability and latency for every installed addon |
+| `stremio_check_addon_upgrades` | Compare live versions and optionally apply upgrades |
 
 Every write merges against the live collection, keeps Stremio's protected
 addons, and snapshots the previous list under the state directory.
@@ -105,6 +107,9 @@ addons, and snapshots the previous list under the state directory.
 | `stremio_desktop_open` | Open a title, or the addons / library / settings page |
 | `stremio_desktop_show_addon` | Open an addon's install page for a configurable addon |
 | `stremio_desktop_download` | Download the matching installer for this OS and CPU |
+| `stremio_cast_devices` | Discover Chromecast and DLNA renderers |
+| `stremio_cast_play` | Play an HTTP or torrent stream on a cast device |
+| `stremio_cast_control` | Status, playback, seek and volume controls for casting |
 
 ### Subtitles
 
@@ -122,6 +127,7 @@ so it shows up in Stremio's own subtitle picker on any device on the LAN.
 
 | Tool | Description |
 |---|---|
+| `stremio_tv_pair` | Pair Android 11+ wireless adb with a six-digit code |
 | `play` | Open and start a title in the TV's Stremio app |
 | `tv_control` | Playback, navigation, volume and power |
 | `playback_status` | What is playing, with position and duration |
@@ -134,10 +140,11 @@ so it shows up in Stremio's own subtitle picker on any device on the LAN.
 
 1. On the TV: Settings > Device Preferences > About, then tap **Build** seven times.
 2. In Developer options, turn on **USB debugging** and **Network debugging**.
-3. Run `adb connect <TV_IP>:5555` and accept the prompt on the TV.
+3. Run `stremio_tv_pair` with the pairing port and six-digit code shown by
+   Wireless debugging. Pass its separate connection port as `connect_port`.
 
-The pairing survives reboots on most devices; re-run `adb connect` if the TV
-stops answering.
+The tool uses `adb pair <host>:<port> <code>`, then connects when a connection
+port is provided.
 
 ## Development
 
