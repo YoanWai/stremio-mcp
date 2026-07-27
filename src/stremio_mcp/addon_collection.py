@@ -88,7 +88,7 @@ async def fetch() -> list[dict[str, Any]]:
 
 def _snapshot(addons: list[dict[str, Any]]) -> str | None:
     path = settings.state_dir / "addon-backups"
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     target = path / f"addons-{stamp}.json"
     try:
         path.mkdir(parents=True, exist_ok=True)
