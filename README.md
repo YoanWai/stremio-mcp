@@ -66,6 +66,10 @@ JSON.parse(localStorage.getItem("profile")).auth.key
 | `stremio_get_addon_manifest` | Inspect one addon's manifest and capabilities |
 | `stremio_get_streams` | Ask one specific addon for streams |
 | `stremio_find_streams` | Ask **every** installed addon at once and merge the results |
+| `stremio_search_all_catalogs` | Search every installed addon catalog that supports search |
+| `stremio_upcoming_episodes` | Upcoming episodes for series in the account library |
+| `stremio_next_unwatched_episode` | First unwatched regular episode from synced watch history |
+| `stremio_auto_fetch_subtitle` | Hash-match OpenSubtitles and serve the selected subtitle |
 
 ### Account and library
 
@@ -79,6 +83,7 @@ JSON.parse(localStorage.getItem("profile")).auth.key
 | `stremio_add_to_library` | Add a title |
 | `stremio_remove_from_library` | Remove a title, keeping its watch state |
 | `stremio_mark_watched` | Mark a title watched or unwatched everywhere |
+| `stremio_trakt_sync` | Link Trakt and sync Stremio's first-party Trakt addon |
 
 ### Addons
 
@@ -89,11 +94,15 @@ Changes here reach every signed-in device, which is how a laptop gets its addons
 | `stremio_list_addons` | List installed addons in the order they are queried |
 | `stremio_search_addons` | Search the official addon directory |
 | `stremio_install_addon` | Install or upgrade an addon by manifest URL, at a chosen position |
+| `stremio_configure_addon` | Open an addon's browser configuration and install its configured manifest |
 | `stremio_uninstall_addon` | Remove an addon by id or URL |
 | `stremio_reorder_addons` | Change which addon answers first for streams |
 | `stremio_restore_default_addons` | Reinstall Stremio's seven defaults |
 | `stremio_addon_health_check` | Reachability and latency for every installed addon |
 | `stremio_check_addon_upgrades` | Compare live versions and optionally apply upgrades |
+| `stremio_save_addon_profile` | Save the current ordered addon collection under a name |
+| `stremio_list_addon_profiles` | List named addon profiles and their addon ids |
+| `stremio_apply_addon_profile` | Replace the account collection with a named profile |
 
 Every write merges against the live collection, keeps Stremio's protected
 addons, and snapshots the previous list under the state directory.
@@ -105,11 +114,15 @@ addons, and snapshots the previous list under the state directory.
 | `stremio_desktop_status` | Whether the app is installed and its streaming server is up |
 | `stremio_desktop_launch` | Start the app and wait for its streaming server |
 | `stremio_desktop_open` | Open a title, or the addons / library / settings page |
+| `stremio_desktop_play` | Select an installed-addon stream and start playback, including resume |
 | `stremio_desktop_show_addon` | Open an addon's install page for a configurable addon |
 | `stremio_desktop_download` | Download the matching installer for this OS and CPU |
 | `stremio_cast_devices` | Discover Chromecast and DLNA renderers |
 | `stremio_cast_play` | Play an HTTP or torrent stream on a cast device |
 | `stremio_cast_control` | Status, playback, seek and volume controls for casting |
+| `stremio_streaming_server_streams` | Active torrent transfers and per-file progress |
+| `stremio_streaming_server_cache` | Cache limit, usage and torrent entries |
+| `stremio_streaming_server_purge_cache` | Stop engines and purge one torrent or the full cache |
 
 ### Subtitles
 

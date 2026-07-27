@@ -58,10 +58,15 @@ class AndroidTV:
         self._connected = False
 
     async def _adb(self, *args: str, timeout: float = 20.0) -> str:
-        proc = await asyncio.create_subprocess_exec(
-            self.adb_path, *args,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                self.adb_path,
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except OSError as exc:
+            raise AdbError(f"could not start {self.adb_path}: {exc}") from exc
         try:
             out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError as exc:

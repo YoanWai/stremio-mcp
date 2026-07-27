@@ -81,6 +81,9 @@ def _summarize(item: dict[str, Any]) -> dict[str, Any]:
         "poster": item.get("poster"),
         "removed": bool(item.get("removed")),
         "watched": is_watched(item),
+        "video_id": state.get("video_id") or None,
+        "season": state.get("season") or None,
+        "episode": state.get("episode") or None,
         "position_ms": position,
         "duration_ms": duration,
         "progress": round(position / duration, 3) if duration else None,
@@ -97,7 +100,9 @@ async def _cinemeta_meta(imdb_id: str, content_type: str) -> dict[str, Any]:
 async def get_items() -> list[dict[str, Any]]:
     data = await api.authed("datastoreGet", {"collection": COLLECTION, "all": True})
     result = data.get("result")
-    return result if isinstance(result, list) else []
+    if not isinstance(result, list):
+        raise api.ApiError("datastoreGet returned no library item list")
+    return result
 
 
 async def put_items(changes: list[dict[str, Any]]) -> None:

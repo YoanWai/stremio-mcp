@@ -19,9 +19,14 @@ def test_is_watched_uses_the_duration_threshold():
 
 
 def test_summarize_reports_progress():
-    summary = account._summarize(item(duration=1000, timeOffset=250))
+    summary = account._summarize(
+        item(duration=1000, timeOffset=250, video_id="tt1:2:3", season=2, episode=3)
+    )
     assert summary["position_ms"] == 250
     assert summary["progress"] == 0.25
+    assert summary["video_id"] == "tt1:2:3"
+    assert summary["season"] == 2
+    assert summary["episode"] == 3
 
 
 def test_summarize_handles_a_missing_duration():
@@ -51,3 +56,13 @@ def test_current_key_without_any_source(monkeypatch, tmp_path):
 
 def test_api_call_sends_the_type_field_stremio_core_sends():
     assert "addonCollectionSet"[0].upper() + "addonCollectionSet"[1:] == "AddonCollectionSet"
+
+
+@pytest.mark.asyncio
+async def test_get_items_reports_an_invalid_api_shape(monkeypatch):
+    async def fake_authed(method, payload):
+        return {"result": {}}
+
+    monkeypatch.setattr(account.api, "authed", fake_authed)
+    with pytest.raises(api.ApiError, match="no library item list"):
+        await account.get_items()

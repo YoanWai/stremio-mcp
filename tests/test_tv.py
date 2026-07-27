@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from stremio_mcp import tv
@@ -68,3 +70,16 @@ async def test_android_tv_pair_rejects_an_invalid_code():
     device = tv.AndroidTV("192.0.2.1", 5555, "adb")
     with pytest.raises(tv.TVError, match="six digits"):
         await device.pair(37123, "12345")
+
+
+@pytest.mark.asyncio
+async def test_adb_start_failure_is_reported(monkeypatch):
+    device = tv.AndroidTV("192.0.2.1", 5555, "missing-adb")
+
+    async def fail_start(*args, **kwargs):
+        raise FileNotFoundError("missing-adb")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fail_start)
+
+    with pytest.raises(tv.AdbError, match="could not start missing-adb"):
+        await device.pair(37123, "123456")

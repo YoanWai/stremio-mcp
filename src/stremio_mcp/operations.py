@@ -303,22 +303,25 @@ async def cast_play(
     file_index: int = 0,
     resume_position_ms: int = 0,
 ) -> dict[str, Any]:
-    target = await _cast_device(device)
-    if info_hash:
-        normalized_hash = info_hash.strip().lower()
+    normalized_hash = info_hash.strip().lower()
+    normalized_url = stream_url.strip()
+    if bool(normalized_hash) == bool(normalized_url):
+        raise OperationsError("pass exactly one of stream_url or info_hash")
+    if resume_position_ms < 0:
+        raise OperationsError("resume_position_ms cannot be negative")
+    if normalized_hash:
         if not _INFO_HASH_RE.fullmatch(normalized_hash):
             raise OperationsError("info_hash must be a 40-character hexadecimal hash")
         if file_index < 0:
             raise OperationsError("file_index cannot be negative")
         source = f"{desktop.STREAMING_SERVER_URL}/{normalized_hash}/{file_index}"
     else:
-        source = stream_url.strip()
+        source = normalized_url
         if not source.startswith(("http://", "https://")):
             raise OperationsError("stream_url must be an http(s) URL")
+    target = await _cast_device(device)
     status = await _cast_player(target["id"], {"source": source})
     if resume_position_ms:
-        if resume_position_ms < 0:
-            raise OperationsError("resume_position_ms cannot be negative")
         await asyncio.sleep(5)
         status = await _cast_player(
             target["id"], {"time": resume_position_ms}
@@ -332,7 +335,6 @@ async def cast_play(
 
 
 async def cast_control(device: str, action: str, value: float = 0) -> dict[str, Any]:
-    target = await _cast_device(device)
     if action == "status":
         payload = {}
     elif action == "pause":
@@ -353,6 +355,7 @@ async def cast_control(device: str, action: str, value: float = 0) -> dict[str, 
         raise OperationsError(
             "action must be status, pause, resume, stop, seek or volume"
         )
+    target = await _cast_device(device)
     status = await _cast_player(target["id"], payload)
     return {"device": target, "action": action, "status": _cast_status(status)}
 
@@ -390,6 +393,7 @@ def register(mcp) -> None:
             api.ApiError,
             addon_collection.CollectionError,
             OperationsError,
+            OSError,
         ) as error:
             return json.dumps({"ok": False, "error": str(error)})
         return json.dumps({"ok": True, **result}, ensure_ascii=False)

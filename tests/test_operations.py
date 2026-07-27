@@ -156,6 +156,45 @@ async def test_cast_play_resolves_name_and_posts_source(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("stream_url", "info_hash"),
+    [
+        ("", ""),
+        ("https://video.example/movie.mp4", "a" * 40),
+    ],
+)
+async def test_cast_play_requires_exactly_one_source(
+    monkeypatch, stream_url, info_hash
+):
+    async def fail_device(selector):
+        raise AssertionError("device discovery must not run")
+
+    monkeypatch.setattr(operations, "_cast_device", fail_device)
+
+    with pytest.raises(operations.OperationsError, match="exactly one"):
+        await operations.cast_play(
+            "TV",
+            stream_url=stream_url,
+            info_hash=info_hash,
+        )
+
+
+@pytest.mark.asyncio
+async def test_cast_play_rejects_negative_resume_before_device_request(monkeypatch):
+    async def fail_device(selector):
+        raise AssertionError("device discovery must not run")
+
+    monkeypatch.setattr(operations, "_cast_device", fail_device)
+
+    with pytest.raises(operations.OperationsError, match="cannot be negative"):
+        await operations.cast_play(
+            "TV",
+            stream_url="https://video.example/movie.mp4",
+            resume_position_ms=-1,
+        )
+
+
+@pytest.mark.asyncio
 async def test_cast_control_validates_volume_before_request(monkeypatch):
     async def fake_device(selector):
         return {"id": "cast", "name": "TV", "type": "chromecast"}
