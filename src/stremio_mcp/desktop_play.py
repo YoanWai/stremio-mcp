@@ -106,7 +106,7 @@ async def play(
     content_type: str,
     season: int,
     episode: int,
-    video_id: str,
+    video_id: str | None,
     stream_index: int,
     wait_seconds: int,
 ) -> dict[str, Any]:
@@ -116,7 +116,7 @@ async def play(
         raise HttpError(f"content_type must be one of {addons.CONTENT_TYPES}")
     if stream_index < 0:
         raise HttpError("stream_index must be zero or greater")
-    resolved_video_id = video_id.strip() or addons.build_video_id(
+    resolved_video_id = (video_id or "").strip() or addons.build_video_id(
         imdb_id, content_type, season, episode
     )
     candidates, failures, _ = await addons.find_stream_candidates(
@@ -169,7 +169,7 @@ def register(mcp) -> None:
         content_type: str = "movie",
         season: int = 0,
         episode: int = 0,
-        video_id: str = "",
+        video_id: str | None = None,
         stream_index: int = 0,
         wait_seconds: int = 20,
     ) -> str:

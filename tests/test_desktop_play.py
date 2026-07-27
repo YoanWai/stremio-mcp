@@ -88,7 +88,7 @@ async def test_play_selects_from_merged_stream_order(monkeypatch, tmp_path):
     monkeypatch.setattr(desktop_play, "wait_for_server", wait_for_server)
     monkeypatch.setattr(desktop_play.desktop, "_open_deep_link", open_deep_link)
 
-    result = await desktop_play.play("tt123", "series", 2, 4, "", 1, 9)
+    result = await desktop_play.play("tt123", "series", 2, 4, None, 1, 9)
 
     assert result["ok"] is True
     assert result["video_id"] == "tt123:2:4"
@@ -102,3 +102,77 @@ async def test_play_selects_from_merged_stream_order(monkeypatch, tmp_path):
     assert decoded_stream["url"].startswith(
         "http://127.0.0.1:11470/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/1"
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_type", "stream_index", "message"),
+    [
+        ("episode", 0, "content_type must be one of"),
+        ("movie", -1, "stream_index must be zero or greater"),
+    ],
+)
+async def test_play_rejects_invalid_selection_arguments(
+    monkeypatch, tmp_path, content_type, stream_index, message
+):
+    monkeypatch.setattr(desktop_play.desktop, "app_path", lambda: tmp_path)
+
+    with pytest.raises(desktop_play.HttpError, match=message):
+        await desktop_play.play("tt123", content_type, 0, 0, None, stream_index, 1)
+
+
+@pytest.mark.asyncio
+async def test_play_reports_when_addons_return_no_streams(monkeypatch, tmp_path):
+    async def find_stream_candidates(*args):
+        return [], [{"addon": "Broken", "error": "HTTP 500"}], 1
+
+    monkeypatch.setattr(desktop_play.desktop, "app_path", lambda: tmp_path)
+    monkeypatch.setattr(desktop_play.addons, "find_stream_candidates", find_stream_candidates)
+
+    with pytest.raises(
+        desktop_play.HttpError,
+        match="no installed addon returned a stream.*Broken",
+    ):
+        await desktop_play.play("tt123", "movie", 0, 0, None, 0, 1)
+
+
+@pytest.mark.asyncio
+async def test_play_rejects_out_of_range_stream_index(monkeypatch, tmp_path):
+    async def find_stream_candidates(*args):
+        return [
+            {
+                "addon": "First",
+                "addon_id": "first",
+                "transport_url": "https://first.example/manifest.json",
+                "stream": {"url": "https://video.example/movie.mp4"},
+            }
+        ], [], 1
+
+    monkeypatch.setattr(desktop_play.desktop, "app_path", lambda: tmp_path)
+    monkeypatch.setattr(desktop_play.addons, "find_stream_candidates", find_stream_candidates)
+
+    with pytest.raises(desktop_play.HttpError, match="outside the 1 available streams"):
+        await desktop_play.play("tt123", "movie", 0, 0, None, 1, 1)
+
+
+@pytest.mark.asyncio
+async def test_play_rejects_invalid_torrent_stream(monkeypatch, tmp_path):
+    async def find_stream_candidates(*args):
+        return [
+            {
+                "addon": "Torrent",
+                "addon_id": "torrent",
+                "transport_url": "https://torrent.example/manifest.json",
+                "stream": {"infoHash": "invalid"},
+            }
+        ], [], 1
+
+    async def wait_for_server(wait_seconds):
+        assert wait_seconds == 1
+
+    monkeypatch.setattr(desktop_play.desktop, "app_path", lambda: tmp_path)
+    monkeypatch.setattr(desktop_play.addons, "find_stream_candidates", find_stream_candidates)
+    monkeypatch.setattr(desktop_play, "wait_for_server", wait_for_server)
+
+    with pytest.raises(desktop_play.HttpError, match="invalid infoHash"):
+        await desktop_play.play("tt123", "movie", 0, 0, None, 0, 1)
