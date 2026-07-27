@@ -89,6 +89,7 @@ Changes here reach every signed-in device, which is how a laptop gets its addons
 | `stremio_list_addons` | List installed addons in the order they are queried |
 | `stremio_search_addons` | Search the official addon directory |
 | `stremio_install_addon` | Install or upgrade an addon by manifest URL, at a chosen position |
+| `stremio_configure_addon` | Open an addon's browser configuration and install its configured manifest |
 | `stremio_uninstall_addon` | Remove an addon by id or URL |
 | `stremio_reorder_addons` | Change which addon answers first for streams |
 | `stremio_restore_default_addons` | Reinstall Stremio's seven defaults |

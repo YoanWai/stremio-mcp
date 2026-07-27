@@ -94,3 +94,39 @@ async def test_fetch_drops_broken_entries(monkeypatch):
     monkeypatch.setattr(collection.api, "authed", fake_authed)
     addons = await collection.fetch()
     assert [entry["manifest"]["id"] for entry in addons] == ["com.good"]
+
+
+@pytest.mark.asyncio
+async def test_install_replaces_an_addon_in_place_through_push(monkeypatch):
+    current = [
+        descriptor("com.linvo.cinemeta", protected=True),
+        descriptor("com.example", protected=True),
+    ]
+    pushed = {}
+
+    async def get_json(url):
+        return {"id": "com.example", "name": "Updated", "version": "2.0.0"}
+
+    async def fetch():
+        return current
+
+    async def push(updated, previous):
+        pushed["updated"] = updated
+        pushed["previous"] = previous
+        return "/tmp/backup.json"
+
+    monkeypatch.setattr(collection, "get_json", get_json)
+    monkeypatch.setattr(collection, "fetch", fetch)
+    monkeypatch.setattr(collection, "_push", push)
+
+    result = await collection.install(
+        "https://configured.example/manifest.json",
+        expected_addon_id="com.example",
+    )
+
+    assert result["action"] == "upgraded"
+    assert result["position"] == 1
+    assert pushed["previous"] == current
+    installed = pushed["updated"][1]
+    assert installed["manifest"]["version"] == "2.0.0"
+    assert installed["flags"] == {"official": True, "protected": True}

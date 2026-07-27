@@ -133,6 +133,46 @@ async def fetch_directory() -> list[dict[str, Any]]:
     return [entry for entry in entries if is_valid_descriptor(entry)]
 
 
+async def install(
+    manifest_url: str,
+    position: int = -1,
+    expected_addon_id: str = "",
+) -> dict[str, Any]:
+    url = normalize_manifest_url(manifest_url)
+    manifest = await get_json(url)
+    addon_id = manifest.get("id")
+    if not addon_id:
+        raise CollectionError(f"{url} is not a Stremio manifest (no id)")
+    if expected_addon_id and addon_id != expected_addon_id:
+        raise CollectionError(
+            f"configured manifest id {addon_id!r} does not match {expected_addon_id!r}"
+        )
+
+    current = await fetch()
+    existing = next((entry for entry in current if descriptor_id(entry) == addon_id), None)
+    flags = (existing or {}).get("flags") or {"official": False, "protected": False}
+    descriptor = {
+        "transportUrl": url,
+        "transportName": "http",
+        "manifest": manifest,
+        "flags": flags,
+    }
+
+    remaining = [entry for entry in current if descriptor_id(entry) != addon_id]
+    index = len(remaining) if position < 0 else min(position, len(remaining))
+    updated = remaining[:index] + [descriptor] + remaining[index:]
+    backup = await _push(updated, current)
+    return {
+        "ok": True,
+        "action": "upgraded" if existing else "installed",
+        "addon": _summarize(descriptor),
+        "position": index,
+        "total": len(updated),
+        "backup": backup,
+        "note": "Synced to the account. Restart or refresh Stremio on a device to pick it up.",
+    }
+
+
 def register(mcp) -> None:
     @mcp.tool()
     async def stremio_list_addons() -> str:
@@ -204,43 +244,10 @@ def register(mcp) -> None:
         (0 is queried first); -1 appends.
         """
         try:
-            url = normalize_manifest_url(manifest_url)
-            manifest = await get_json(url)
-        except (CollectionError, HttpError) as exc:
+            result = await install(manifest_url, position)
+        except (api.ApiError, CollectionError, HttpError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
-        if not manifest.get("id"):
-            return json.dumps({"ok": False, "error": f"{url} is not a Stremio manifest (no id)"})
-
-        try:
-            current = await fetch()
-        except (api.ApiError, CollectionError) as exc:
-            return json.dumps({"ok": False, "error": str(exc)})
-
-        addon_id = manifest["id"]
-        existing = next((e for e in current if descriptor_id(e) == addon_id), None)
-        flags = (existing or {}).get("flags") or {"official": False, "protected": False}
-        descriptor = {"transportUrl": url, "transportName": "http", "manifest": manifest, "flags": flags}
-
-        remaining = [entry for entry in current if descriptor_id(entry) != addon_id]
-        index = len(remaining) if position < 0 else min(position, len(remaining))
-        updated = remaining[:index] + [descriptor] + remaining[index:]
-
-        try:
-            backup = await _push(updated, current)
-        except (api.ApiError, CollectionError) as exc:
-            return json.dumps({"ok": False, "error": str(exc)})
-        return json.dumps(
-            {
-                "ok": True,
-                "action": "upgraded" if existing else "installed",
-                "addon": _summarize(descriptor),
-                "position": index,
-                "total": len(updated),
-                "backup": backup,
-                "note": "Synced to the account. Restart or refresh Stremio on a device to pick it up.",
-            },
-            ensure_ascii=False,
-        )
+        return json.dumps(result, ensure_ascii=False)
 
     @mcp.tool()
     async def stremio_uninstall_addon(addon: str) -> str:
