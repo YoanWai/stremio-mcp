@@ -104,6 +104,7 @@ addons, and snapshots the previous list under the state directory.
 | `stremio_desktop_status` | Whether the app is installed and its streaming server is up |
 | `stremio_desktop_launch` | Start the app and wait for its streaming server |
 | `stremio_desktop_open` | Open a title, or the addons / library / settings page |
+| `stremio_desktop_play` | Select an installed-addon stream and start playback, including resume |
 | `stremio_desktop_show_addon` | Open an addon's install page for a configurable addon |
 | `stremio_desktop_download` | Download the matching installer for this OS and CPU |
 

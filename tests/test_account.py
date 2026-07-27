@@ -19,9 +19,14 @@ def test_is_watched_uses_the_duration_threshold():
 
 
 def test_summarize_reports_progress():
-    summary = account._summarize(item(duration=1000, timeOffset=250))
+    summary = account._summarize(
+        item(duration=1000, timeOffset=250, video_id="tt1:2:3", season=2, episode=3)
+    )
     assert summary["position_ms"] == 250
     assert summary["progress"] == 0.25
+    assert summary["video_id"] == "tt1:2:3"
+    assert summary["season"] == 2
+    assert summary["episode"] == 3
 
 
 def test_summarize_handles_a_missing_duration():
