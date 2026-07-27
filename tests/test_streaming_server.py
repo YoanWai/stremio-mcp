@@ -136,3 +136,35 @@ async def test_purge_stops_engine_and_deletes_only_selected_hash(tmp_path, monke
     assert result["deleted_hashes"] == [HASH_A]
     assert not (cache_root / HASH_A).exists()
     assert (cache_root / HASH_B).is_dir()
+
+
+@pytest.mark.asyncio
+async def test_purge_stops_active_engine_without_cached_files(tmp_path, monkeypatch):
+    cache_root = tmp_path / "stremio-cache"
+
+    async def fake_inventory():
+        return {
+            "cache_root": str(cache_root),
+            "configured_limit_bytes": 10_000,
+            "used_bytes": 0,
+            "entry_count": 0,
+            "entries": [],
+        }
+
+    async def fake_stats():
+        return {HASH_A: {}}
+
+    stopped = []
+
+    async def fake_stop(info_hash):
+        stopped.append(info_hash)
+
+    monkeypatch.setattr(streaming_server, "cache_inventory", fake_inventory)
+    monkeypatch.setattr(streaming_server, "_active_stats", fake_stats)
+    monkeypatch.setattr(streaming_server, "_stop_engines", fake_stop)
+
+    result = await streaming_server.purge_cache(True, HASH_A)
+
+    assert stopped == [HASH_A]
+    assert result["deleted_entries"] == 0
+    assert result["deleted_bytes"] == 0
