@@ -52,15 +52,21 @@ class AndroidTV:
     def __init__(self, host: str, port: int, adb_path: str) -> None:
         if not host:
             raise TVError("ANDROID_TV_HOST is not set; cannot reach the TV.")
+        self.host = host
         self.target = f"{host}:{port}"
         self.adb_path = adb_path
         self._connected = False
 
     async def _adb(self, *args: str, timeout: float = 20.0) -> str:
-        proc = await asyncio.create_subprocess_exec(
-            self.adb_path, *args,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                self.adb_path,
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except OSError as exc:
+            raise AdbError(f"could not start {self.adb_path}: {exc}") from exc
         try:
             out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError as exc:
@@ -83,6 +89,17 @@ class AndroidTV:
         if "connected" not in result.lower():
             raise AdbError(f"could not connect to {self.target}: {result.strip()}")
         self._connected = True
+
+    async def pair(self, pairing_port: int, pairing_code: str) -> str:
+        if not 1 <= pairing_port <= 65535:
+            raise TVError("pairing_port must be between 1 and 65535")
+        if not re.fullmatch(r"\d{6}", pairing_code):
+            raise TVError("pairing_code must be exactly six digits")
+        target = f"{self.host}:{pairing_port}"
+        result = await self._adb("pair", target, pairing_code)
+        if "successfully paired" not in result.lower():
+            raise AdbError(f"adb did not confirm pairing with {target}: {result.strip()}")
+        return target
 
     async def open_uri(self, uri: str) -> None:
         await self._shell(
