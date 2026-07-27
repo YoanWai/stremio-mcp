@@ -97,7 +97,9 @@ async def _cinemeta_meta(imdb_id: str, content_type: str) -> dict[str, Any]:
 async def get_items() -> list[dict[str, Any]]:
     data = await api.authed("datastoreGet", {"collection": COLLECTION, "all": True})
     result = data.get("result")
-    return result if isinstance(result, list) else []
+    if not isinstance(result, list):
+        raise api.ApiError("datastoreGet returned no library item list")
+    return result
 
 
 async def put_items(changes: list[dict[str, Any]]) -> None:

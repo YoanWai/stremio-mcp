@@ -51,3 +51,13 @@ def test_current_key_without_any_source(monkeypatch, tmp_path):
 
 def test_api_call_sends_the_type_field_stremio_core_sends():
     assert "addonCollectionSet"[0].upper() + "addonCollectionSet"[1:] == "AddonCollectionSet"
+
+
+@pytest.mark.asyncio
+async def test_get_items_reports_an_invalid_api_shape(monkeypatch):
+    async def fake_authed(method, payload):
+        return {"result": {}}
+
+    monkeypatch.setattr(account.api, "authed", fake_authed)
+    with pytest.raises(api.ApiError, match="no library item list"):
+        await account.get_items()
