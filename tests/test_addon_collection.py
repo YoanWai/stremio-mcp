@@ -1,4 +1,5 @@
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -53,6 +54,22 @@ def test_snapshot_names_do_not_collide_within_one_second(monkeypatch, tmp_path):
 
     assert first != second
     assert len(list((tmp_path / "addon-backups").glob("addons-*.json"))) == 2
+
+
+def test_snapshot_write_failure_propagates(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        collection,
+        "settings",
+        SimpleNamespace(state_dir=tmp_path),
+    )
+
+    def fail_write(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", fail_write)
+
+    with pytest.raises(OSError, match="disk full"):
+        collection._snapshot([descriptor("com.first")])
 
 
 @pytest.mark.asyncio

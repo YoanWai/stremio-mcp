@@ -86,21 +86,18 @@ async def fetch() -> list[dict[str, Any]]:
     return [entry for entry in addons if is_valid_descriptor(entry)]
 
 
-def _snapshot(addons: list[dict[str, Any]]) -> str | None:
+def _snapshot(addons: list[dict[str, Any]]) -> str:
     path = settings.state_dir / "addon-backups"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     target = path / f"addons-{stamp}.json"
-    try:
-        path.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(addons, indent=2), encoding="utf-8")
-    except OSError:
-        return None
+    path.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(addons, indent=2), encoding="utf-8")
     for stale in sorted(path.glob("addons-*.json"))[:-20]:
         stale.unlink(missing_ok=True)
     return str(target)
 
 
-async def _push(addons: list[dict[str, Any]], previous: list[dict[str, Any]]) -> str | None:
+async def _push(addons: list[dict[str, Any]], previous: list[dict[str, Any]]) -> str:
     """Write a full collection after checking it keeps every protected addon."""
     usable = [entry for entry in addons if is_valid_descriptor(entry)]
     if not usable:
@@ -245,7 +242,7 @@ def register(mcp) -> None:
         """
         try:
             result = await install(manifest_url, position)
-        except (api.ApiError, CollectionError, HttpError) as exc:
+        except (api.ApiError, CollectionError, HttpError, OSError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
         return json.dumps(result, ensure_ascii=False)
 
@@ -273,7 +270,7 @@ def register(mcp) -> None:
         remaining = [entry for entry in current if descriptor_id(entry) not in target_ids]
         try:
             backup = await _push(remaining, current)
-        except (api.ApiError, CollectionError) as exc:
+        except (api.ApiError, CollectionError, OSError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
         return json.dumps(
             {
@@ -306,7 +303,7 @@ def register(mcp) -> None:
         updated = front + back
         try:
             backup = await _push(updated, current)
-        except (api.ApiError, CollectionError) as exc:
+        except (api.ApiError, CollectionError, OSError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
         return json.dumps(
             {
@@ -338,7 +335,7 @@ def register(mcp) -> None:
             updated = defaults
         try:
             backup = await _push(updated, current)
-        except (api.ApiError, CollectionError) as exc:
+        except (api.ApiError, CollectionError, OSError) as exc:
             return json.dumps({"ok": False, "error": str(exc)})
         return json.dumps(
             {
