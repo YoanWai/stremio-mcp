@@ -494,7 +494,13 @@ def register(mcp) -> None:
         """
         try:
             result = await trakt_sync(open_auth)
-        except (ContentError, HttpError, api.ApiError, addon_collection.CollectionError) as error:
+        except (
+            ContentError,
+            HttpError,
+            api.ApiError,
+            addon_collection.CollectionError,
+            OSError,
+        ) as error:
             return json.dumps({"ok": False, "error": str(error)})
         return json.dumps({"ok": True, **result}, ensure_ascii=False)
 

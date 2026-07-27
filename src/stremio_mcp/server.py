@@ -18,9 +18,13 @@ def build_server() -> FastMCP:
     from . import (
         account,
         addon_collection,
+        addon_configuration,
+        addon_profiles,
         addons,
         content_features,
         desktop,
+        desktop_play,
+        streaming_server,
         subtitle_addon,
         tv,
     )
@@ -30,8 +34,12 @@ def build_server() -> FastMCP:
         addons,
         account,
         addon_collection,
+        addon_configuration,
+        addon_profiles,
         content_features,
         desktop,
+        desktop_play,
+        streaming_server,
         subtitle_addon,
         tv,
     ):
