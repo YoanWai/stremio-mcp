@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stremio-mcp"
-version = "0.2.0"
+version = "0.3.0"
 description = "MCP server for Stremio: content search, account library, addon management, desktop and Android TV control"
 readme = "README.md"
 requires-python = ">=3.10"

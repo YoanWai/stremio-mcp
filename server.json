@@ -3,7 +3,7 @@
   "name": "io.github.YoanWai/stremio-mcp",
   "title": "Stremio",
   "description": "MCP server for Stremio: search and browse content, manage the account library, install and order addons across every signed-in device, and control Stremio on a desktop or an Android TV.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "repository": {
     "url": "https://github.com/YoanWai/stremio-mcp",
     "source": "github"
@@ -13,7 +13,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "stremio-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
