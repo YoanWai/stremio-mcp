@@ -105,6 +105,9 @@ addons, and snapshots the previous list under the state directory.
 | `stremio_desktop_open` | Open a title, or the addons / library / settings page |
 | `stremio_desktop_show_addon` | Open an addon's install page for a configurable addon |
 | `stremio_desktop_download` | Download the matching installer for this OS and CPU |
+| `stremio_streaming_server_streams` | Active torrent transfers and per-file progress |
+| `stremio_streaming_server_cache` | Cache limit, usage and torrent entries |
+| `stremio_streaming_server_purge_cache` | Stop engines and purge one torrent or the full cache |
 
 ### Subtitles
 
