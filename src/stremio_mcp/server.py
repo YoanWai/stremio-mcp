@@ -66,10 +66,22 @@ def cli() -> None:
         ),
     )
     parser.add_argument("--version", action="store_true", help="print the version and exit")
+    parser.add_argument(
+        "--serve-subtitles",
+        action="store_true",
+        help="run only the subtitle addon, as a long-lived service for the TV",
+    )
     args = parser.parse_args()
     if args.version:
         from . import __version__
 
         print(f"stremio-mcp {__version__}")
+        return
+    if args.serve_subtitles:
+        import asyncio
+
+        from . import subtitle_addon
+
+        asyncio.run(subtitle_addon.serve_forever())
         return
     get_server().run()

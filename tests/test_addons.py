@@ -42,5 +42,5 @@ def test_build_video_id_requires_season_and_episode():
         ({"resources": ["stream"]}, True),
     ],
 )
-def test_supports_streams(manifest, expected):
-    assert addons._supports_streams(manifest, "movie", "tt1375666") is expected
+def test_supports_resource(manifest, expected):
+    assert addons.supports_resource(manifest, "stream", "movie", "tt1375666") is expected
