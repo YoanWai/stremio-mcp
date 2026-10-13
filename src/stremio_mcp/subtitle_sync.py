@@ -170,7 +170,11 @@ def _build_synced_subtitle(
         reference = _first_valid(http, better_references)
 
     if reference is not None:
-        content = align(reference[1], content)
+        try:
+            content = align(reference[1], content)
+        except (OSError, subprocess.SubprocessError) as error:
+            _log(f"alignment failed, serving {target_candidate.release} as is: {error}")
+            reference = None
     cached.parent.mkdir(parents=True, exist_ok=True)
     cached.write_bytes(content)
     _log(

@@ -147,6 +147,25 @@ def test_aligns_to_a_reference_cut_for_the_playing_release(monkeypatch):
     assert path.read_bytes() == b"aligned"
 
 
+def test_serves_the_target_unaligned_when_alass_is_missing(monkeypatch):
+    listing = [
+        listed("heb", "/hdtv.srt", "The.Show.S05E03.HDTV.x264-KILLERS", field="movieReleaseName"),
+        listed("eng", "/eng.srt", "The.Show.S05E03.1080p.BluRay.x264-ROVERS", field="movieReleaseName"),
+    ]
+    files = {"/hdtv.srt": b"1\n00:00:01,000 --> 00:00:02,000\nhdtv\n",
+             "/eng.srt": b"1\n00:00:01,000 --> 00:00:02,000\neng\n"}
+    monkeypatch.setattr(subtitle_sync, "_http_client", serve(listing, files))
+
+    def missing_binary(*args, **kwargs):
+        raise FileNotFoundError("alass-cli")
+
+    monkeypatch.setattr(subtitle_sync.subprocess, "run", missing_binary)
+
+    path = subtitle_sync.synced_subtitle("series", "tt1:5:3", {"filename": PLAYING})
+
+    assert path.read_bytes() == files["/hdtv.srt"]
+
+
 def test_skips_downloads_that_are_not_subtitles(monkeypatch):
     listing = [
         listed("heb", "/broken.srt", "[KTUVIT]The.Show.S05E03.1080p.BluRay.x264-ROVERS"),
