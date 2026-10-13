@@ -30,6 +30,7 @@ TARGET_LANGUAGE = "heb"
 REFERENCE_LANGUAGE = "eng"
 SOURCES_TTL_SECONDS = 600
 DOWNLOAD_ATTEMPTS = 3
+MAX_SUBTITLE_BYTES = 4_000_000
 
 _SOURCE_MARKERS = (
     ("hdtv", {"hdtv", "pdtv", "sdtv"}),
@@ -42,6 +43,7 @@ _CACHE_KEY = re.compile(r"[0-9a-f]{16}")
 
 _sources_cache: tuple[float, list[dict[str, Any]]] | None = None
 _sources_lock = threading.Lock()
+_sync_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -140,7 +142,16 @@ def synced_subtitle(content_type: str, video_id: str, extra: dict[str, str]) -> 
     cached = _cache_path(cache_key)
     if cached.is_file():
         return cached
+    # One alignment at a time keeps a burst of requests from piling up alass runs.
+    with _sync_lock:
+        if cached.is_file():
+            return cached
+        return _build_synced_subtitle(cached, content_type, video_id, extra, playing)
 
+
+def _build_synced_subtitle(
+    cached: Path, content_type: str, video_id: str, extra: dict[str, str], playing: str
+) -> Path | None:
     with _http_client() as http:
         candidates = _candidates(http, content_type, video_id, extra)
         target = _first_valid(
@@ -200,16 +211,26 @@ def _candidates(
 def _first_valid(http: httpx.Client, ranked: list[Candidate]) -> tuple[Candidate, bytes] | None:
     for candidate in ranked[:DOWNLOAD_ATTEMPTS]:
         try:
-            response = http.get(candidate.url)
-            response.raise_for_status()
+            content = _download(http, candidate.url)
         except httpx.HTTPError as error:
             _log(f"subtitle download failed: {candidate.url}: {error}")
             continue
         # Some sources answer 200 with an error page instead of the file.
-        if b"-->" in response.content:
-            return candidate, response.content
+        if b"-->" in content:
+            return candidate, content
         _log(f"not a subtitle file: {candidate.url}")
     return None
+
+
+def _download(http: httpx.Client, url: str) -> bytes:
+    with http.stream("GET", url) as response:
+        response.raise_for_status()
+        content = b""
+        for chunk in response.iter_bytes():
+            content += chunk
+            if len(content) > MAX_SUBTITLE_BYTES:
+                raise httpx.HTTPError(f"{url} exceeds {MAX_SUBTITLE_BYTES} bytes")
+    return content
 
 
 def _subtitle_sources(content_type: str, video_id: str) -> list[str]:

@@ -160,6 +160,22 @@ def test_skips_downloads_that_are_not_subtitles(monkeypatch):
     assert path.read_bytes() == files["/good.srt"]
 
 
+def test_skips_downloads_over_the_size_limit(monkeypatch):
+    listing = [
+        listed("heb", "/huge.srt", "[KTUVIT]The.Show.S05E03.1080p.BluRay.x264-ROVERS"),
+        listed("heb", "/good.srt", "[KTUVIT]The.Show.S05E03.720p.BluRay.x264-DEMAND"),
+    ]
+    files = {
+        "/huge.srt": b"1\n00:00:01,000 --> 00:00:02,000\n" + b"x" * subtitle_sync.MAX_SUBTITLE_BYTES,
+        "/good.srt": b"1\n00:00:01,000 --> 00:00:02,000\ngood\n",
+    }
+    monkeypatch.setattr(subtitle_sync, "_http_client", serve(listing, files))
+
+    path = subtitle_sync.synced_subtitle("series", "tt1:5:3", {"filename": PLAYING})
+
+    assert path.read_bytes() == files["/good.srt"]
+
+
 def test_forwards_the_extras_and_caches_the_result(monkeypatch):
     listing = [listed("heb", "/a.srt", "The.Show.S05E03.BluRay-ROVERS")]
     files = {"/a.srt": b"1\n00:00:01,000 --> 00:00:02,000\na\n"}
