@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import argparse
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
-_mcp: FastMCP | None = None
+_mcp: MCPServer | None = None
 
 
-def build_server() -> FastMCP:
+def build_server() -> MCPServer:
     """Create the server and register every toolset onto it."""
     from . import (
+        __version__,
         account,
         addon_collection,
         addon_configuration,
@@ -30,7 +31,7 @@ def build_server() -> FastMCP:
         tv,
     )
 
-    server = FastMCP("stremio")
+    server = MCPServer("stremio", version=__version__)
     for module in (
         addons,
         account,
@@ -49,7 +50,7 @@ def build_server() -> FastMCP:
     return server
 
 
-def get_server() -> FastMCP:
+def get_server() -> MCPServer:
     global _mcp
     if _mcp is None:
         _mcp = build_server()
