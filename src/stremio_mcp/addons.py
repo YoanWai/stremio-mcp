@@ -59,16 +59,14 @@ def _slim_stream(stream: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def supports_resource(
-    manifest: dict[str, Any], resource_name: str, content_type: str, imdb_id: str
-) -> bool:
-    """Whether asking this addon for a resource is worth a request."""
+def _supports_streams(manifest: dict[str, Any], content_type: str, imdb_id: str) -> bool:
+    """Whether asking this addon for a stream is worth a request."""
     resources = manifest.get("resources") or []
     names = {
         resource if isinstance(resource, str) else resource.get("name")
         for resource in resources
     }
-    if resource_name not in names:
+    if "stream" not in names:
         return False
     types = manifest.get("types") or []
     if types and content_type not in types:
@@ -99,7 +97,7 @@ async def find_stream_candidates(
     providers = [
         entry
         for entry in installed
-        if supports_resource(entry["manifest"], "stream", content_type, imdb_id)
+        if _supports_streams(entry["manifest"], content_type, imdb_id)
     ]
 
     async def ask(entry: dict[str, Any]) -> tuple[dict[str, Any], list | None, str | None]:

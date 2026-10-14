@@ -9,7 +9,6 @@ class StremioMcp < Formula
 
   depends_on "rust" => :build
   depends_on "openssl@3"
-  depends_on "alass"
   depends_on "python@3.12"
 
   resource "annotated-types" do
