@@ -129,23 +129,6 @@ addons, and snapshots the previous list under the state directory.
 `add_subtitle` serves a subtitle file from this machine through a small addon,
 so it shows up in Stremio's own subtitle picker on any device on the LAN.
 
-The same addon also offers a Hebrew subtitle timed to the file that is playing.
-Releases of one episode differ by recaps and ad-break cuts, so a subtitle made
-for another release drifts by a different amount after every break. Stremio
-sends the playing file's name, the addon picks the Hebrew subtitle from your
-installed subtitle addons whose release matches best, and when an English
-subtitle matches the release better it aligns the Hebrew to it with
-[alass](https://github.com/kaegi/alass) (`brew install alass`).
-
-To keep the addon reachable while no MCP client is open, run it as a service:
-
-```bash
-stremio-mcp --serve-subtitles
-```
-
-It listens on `STREMIO_MCP_ADDON_PORT`, installs itself on the account, and
-updates the account entry whenever this machine's LAN address changes.
-
 | Tool | Description |
 |---|---|
 | `add_subtitle` | Serve an .srt for a title, or for one episode |

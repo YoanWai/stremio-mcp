@@ -8,47 +8,46 @@ through the account collection, which merges rather than replaces.
 
 from __future__ import annotations
 
-import asyncio
 import errno
 import hashlib
 import json
 import socket
 import sys
 import threading
-import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, unquote, urlparse
+from urllib.parse import unquote, urlparse
 
-import httpx
-
-from . import addon_collection, api, subtitle_sync
+from . import api
 from .config import settings
 from .net import HttpError, get_bytes
 
 ADDON_ID = "org.stremio.mcp-subtitles"
 ADDON_BIND_HOST = "0.0.0.0"
-ACCOUNT_REFRESH_SECONDS = 300
 
 # video_id -> list of {id, lang, label, filename, size}
 _subtitles: dict[str, list[dict[str, Any]]] = {}
 _server: ThreadingHTTPServer | None = None
 _server_port: int = 0
-_index_mtime_ns: int = 0
+_local_ip: str = ""
 _lock = threading.Lock()
 
 
 def _local_address() -> str:
-    """This machine's current LAN address, which is what the TV has to reach."""
+    """This machine's LAN address, which is what the TV has to reach."""
+    global _local_ip
+    if _local_ip:
+        return _local_ip
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         probe.connect(("8.8.8.8", 80))
-        return probe.getsockname()[0]
+        _local_ip = probe.getsockname()[0]
     except OSError:
-        return "127.0.0.1"
+        _local_ip = "127.0.0.1"
     finally:
         probe.close()
+    return _local_ip
 
 
 def base_url() -> str:
@@ -70,12 +69,9 @@ def _store_path(subtitle_id: str) -> Path:
 def _manifest() -> dict[str, Any]:
     return {
         "id": ADDON_ID,
-        "version": "1.2.0",
+        "version": "1.1.0",
         "name": "MCP Subtitles",
-        "description": (
-            "Subtitles sideloaded through stremio-mcp, and Hebrew subtitles re-timed "
-            "to the release that is playing."
-        ),
+        "description": "Subtitles sideloaded through stremio-mcp.",
         "catalogs": [],
         "resources": ["subtitles"],
         "types": ["movie", "series"],
@@ -85,7 +81,6 @@ def _manifest() -> dict[str, Any]:
 
 def lookup(requested_id: str) -> list[dict[str, Any]]:
     """Subtitles for a video id, falling back to ones filed under the bare title."""
-    _reload_if_changed()
     with _lock:
         exact = list(_subtitles.get(requested_id, []))
         if exact:
@@ -93,35 +88,22 @@ def lookup(requested_id: str) -> list[dict[str, Any]]:
         return list(_subtitles.get(requested_id.split(":", 1)[0], []))
 
 
-def parse_subtitles_path(path: str) -> tuple[str, str, dict[str, str]] | None:
-    """Split /subtitles/{type}/{id}[/{extra}].json into type, video id and extras.
+def parse_subtitles_path(path: str) -> str | None:
+    """Pull the video id out of /subtitles/{type}/{id}[/{extra}].json.
 
-    Stremio appends an extra segment (videoHash, videoSize, filename) and series
-    ids carry percent-encoded colons, so segments are split before decoding.
+    Stremio appends an extra segment (videoHash, filename, ...) for subtitle
+    requests, and series ids carry percent-encoded colons, so neither the last
+    segment nor a naive split can be trusted to be the id.
     """
     parts = [segment for segment in path.strip("/").split("/") if segment]
-    if len(parts) not in (3, 4) or parts[0] != "subtitles" or not parts[-1].endswith(".json"):
+    if len(parts) < 3 or parts[0] != "subtitles":
         return None
-    parts[-1] = parts[-1][: -len(".json")]
-    extra = dict(parse_qsl(parts[3])) if len(parts) == 4 else {}
-    return parts[1], unquote(parts[2]), extra
-
-
-def _synced_entries(content_type: str, video_id: str, extra: dict[str, str]) -> list[dict[str, Any]]:
-    try:
-        synced = subtitle_sync.synced_subtitle(content_type, video_id, extra)
-    except Exception:  # noqa: BLE001 - a failed sync must not hide the sideloaded subtitles
-        print(f"[mcp-subtitles] sync failed for {video_id}:\n{traceback.format_exc()}", file=sys.stderr)
-        return []
-    if synced is None:
-        return []
-    return [
-        {
-            "id": f"synced-{synced.stem}",
-            "url": f"{base_url()}/synced/{synced.stem}.srt",
-            "lang": subtitle_sync.TARGET_LANGUAGE,
-        }
-    ]
+    candidate = parts[2]
+    if len(parts) == 3:
+        if not candidate.endswith(".json"):
+            return None
+        candidate = candidate[: -len(".json")]
+    return unquote(candidate)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -136,27 +118,22 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(_manifest())
             return
         if path.startswith("/subtitles/"):
-            parsed = parse_subtitles_path(path)
-            if parsed is None:
+            requested = parse_subtitles_path(path)
+            if requested is None:
                 self._json({"subtitles": []})
                 return
-            content_type, requested, extra = parsed
-            sideloaded = [
+            self._json(
                 {
-                    "id": entry["id"],
-                    "url": f"{base_url()}/subtitle/{entry['id']}.srt",
-                    "lang": entry["lang"],
+                    "subtitles": [
+                        {
+                            "id": entry["id"],
+                            "url": f"{base_url()}/subtitle/{entry['id']}.srt",
+                            "lang": entry["lang"],
+                        }
+                        for entry in lookup(requested)
+                    ]
                 }
-                for entry in lookup(requested)
-            ]
-            self._json({"subtitles": _synced_entries(content_type, requested, extra) + sideloaded})
-            return
-        if path.startswith("/synced/") and path.endswith(".srt"):
-            synced = subtitle_sync.synced_path(path.rsplit("/", 1)[-1][: -len(".srt")])
-            if synced is None or not synced.is_file():
-                self._not_found()
-                return
-            self._srt(synced.read_bytes(), synced.name)
+            )
             return
         if path.startswith("/subtitle/") and path.endswith(".srt"):
             subtitle_id = path.rsplit("/", 1)[-1][: -len(".srt")]
@@ -203,32 +180,18 @@ class _Handler(BaseHTTPRequestHandler):
         print(f"[mcp-subtitles] {self.address_string()} {format % args}", file=sys.stderr, flush=True)
 
 
-def _serves_this_addon(port: int) -> bool:
-    try:
-        manifest = httpx.get(f"http://127.0.0.1:{port}/manifest.json", timeout=2.0).json()
-    except (httpx.HTTPError, ValueError):
-        return False
-    return isinstance(manifest, dict) and manifest.get("id") == ADDON_ID
-
-
-def start_server(fallback: bool = True) -> int:
-    """Start the addon HTTP server once, returning the port it is served on.
-
-    With fallback, a preferred port already serving this addon (the background
-    subtitle service) is shared, and any other taken port moves us to a free one.
-    """
+def start_server() -> int:
+    """Start the addon HTTP server once, returning the port it listens on."""
     global _server, _server_port
-    if _server_port:
+    if _server is not None:
         return _server_port
     try:
         _server = ThreadingHTTPServer((ADDON_BIND_HOST, settings.addon_port), _Handler)
     except OSError as error:
-        if error.errno != errno.EADDRINUSE or not fallback:
+        if error.errno != errno.EADDRINUSE:
             raise
-        if _serves_this_addon(settings.addon_port):
-            _server_port = settings.addon_port
-            _load_from_disk()
-            return _server_port
+        # Another stremio-mcp process already holds the preferred port; any free
+        # port works because the manifest URL carries the real one.
         _server = ThreadingHTTPServer((ADDON_BIND_HOST, 0), _Handler)
     _server_port = _server.server_address[1]
     threading.Thread(target=_server.serve_forever, daemon=True, name="mcp-subtitles").start()
@@ -238,10 +201,11 @@ def start_server(fallback: bool = True) -> int:
 
 def stop_server() -> None:
     global _server, _server_port
-    if _server is not None:
-        _server.shutdown()
-        _server.server_close()
-        _server = None
+    if _server is None:
+        return
+    _server.shutdown()
+    _server.server_close()
+    _server = None
     _server_port = 0
 
 
@@ -249,19 +213,11 @@ def _index_path() -> Path:
     return settings.subtitle_dir / "index.json"
 
 
-def _reload_if_changed() -> None:
-    path = _index_path()
-    if path.is_file() and path.stat().st_mtime_ns != _index_mtime_ns:
-        _load_from_disk()
-
-
 def _load_from_disk() -> None:
-    global _index_mtime_ns
     path = _index_path()
     if not path.is_file():
         return
     try:
-        _index_mtime_ns = path.stat().st_mtime_ns
         stored = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return
@@ -284,6 +240,8 @@ def _save_to_disk() -> None:
 
 async def install_to_account() -> dict[str, Any]:
     """Add this addon to the account collection without touching the rest of it."""
+    from . import addon_collection
+
     current = await addon_collection.fetch()
     descriptor = {
         "transportUrl": manifest_url(),
@@ -297,36 +255,6 @@ async def install_to_account() -> dict[str, Any]:
     updated = [descriptor] + remaining
     backup = await addon_collection._push(updated, current)
     return {"manifest_url": manifest_url(), "total_addons": len(updated), "backup": backup}
-
-
-async def refresh_account_entry() -> bool:
-    """Point the account at this server when its address or manifest changed."""
-    if _local_address() == "127.0.0.1":
-        print("[mcp-subtitles] offline, leaving the account entry alone", file=sys.stderr)
-        return False
-    installed = await addon_collection.fetch()
-    ours = next((entry for entry in installed if addon_collection.descriptor_id(entry) == ADDON_ID), None)
-    if (
-        ours is not None
-        and ours["transportUrl"] == manifest_url()
-        and ours["manifest"].get("version") == _manifest()["version"]
-    ):
-        return False
-    await install_to_account()
-    return True
-
-
-async def serve_forever() -> None:
-    """Run the addon as a long-lived service that keeps the account pointed at it."""
-    start_server(fallback=False)
-    print(f"[mcp-subtitles] serving {manifest_url()}", file=sys.stderr, flush=True)
-    while True:
-        try:
-            if await refresh_account_entry():
-                print(f"[mcp-subtitles] account now uses {manifest_url()}", file=sys.stderr, flush=True)
-        except Exception as error:  # noqa: BLE001 - keep serving through account API outages
-            print(f"[mcp-subtitles] account refresh failed: {error}", file=sys.stderr, flush=True)
-        await asyncio.sleep(ACCOUNT_REFRESH_SECONDS)
 
 
 class SubtitleError(RuntimeError):
