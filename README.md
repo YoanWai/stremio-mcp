@@ -9,6 +9,14 @@ app's config files. The account is the shared source of truth, so a single
 `stremio_install_addon` call reaches Stremio desktop on **macOS, Windows and
 Linux**, the Android TV app, mobile and the web client at once.
 
+Things to ask your assistant once it is connected:
+
+- "What's new in Severance this week, and is the next episode out?"
+- "Find 4K streams for Dune: Part Two across all my addons."
+- "Install Torrentio and put it first, then check every addon is reachable."
+- "Play the next episode I haven't watched of The Bear on the TV."
+- "Pause the TV and turn the volume down."
+
 ## Install
 
 ```bash
